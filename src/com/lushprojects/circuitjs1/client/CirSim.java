@@ -76,6 +76,7 @@ import com.google.gwt.user.client.Timer;
 import com.google.gwt.user.client.Window;
 import com.google.gwt.user.client.ui.VerticalPanel;
 import com.google.gwt.user.client.ui.HorizontalPanel;
+import com.google.gwt.user.client.ui.TextArea;
 import com.google.gwt.event.dom.client.ClickHandler;
 import com.google.gwt.event.dom.client.ClickEvent;
 import com.google.gwt.event.dom.client.DoubleClickHandler;
@@ -97,6 +98,10 @@ import com.google.gwt.user.client.Window.Navigator;
 import com.google.gwt.event.logical.shared.ResizeEvent;
 import com.google.gwt.event.logical.shared.ResizeHandler;
 import com.google.gwt.user.client.DOM;
+import com.google.gwt.event.dom.client.BlurHandler;
+import com.google.gwt.event.dom.client.BlurEvent;
+import com.google.gwt.event.dom.client.FocusHandler;
+import com.google.gwt.event.dom.client.FocusEvent;
 
 public class CirSim implements MouseDownHandler, MouseMoveHandler, MouseUpHandler,
 ClickHandler, DoubleClickHandler, ContextMenuHandler, NativePreviewHandler,
@@ -260,6 +265,9 @@ MouseOutHandler, MouseWheelHandler {
     CellPanel buttonPanel;
     private boolean mouseDragging;
     double scopeHeightFraction = 0.2;
+    VerticalPanel editorPanel;
+    TextArea editor;
+    boolean editorIsFocussed = false;
 
     Vector<CheckboxMenuItem> mainMenuItems = new Vector<CheckboxMenuItem>();
     Vector<String> mainMenuItemNames = new Vector<String>();
@@ -275,6 +283,7 @@ MouseOutHandler, MouseWheelHandler {
 
     static final int MENUBARHEIGHT = 30;
     static int VERTICALPANELWIDTH = 166; // default
+	static int EDITORPANELWIDTH = 200;
     static final int POSTGRABSQ = 25;
     static final int MINPOSTGRABSIZE = 256;
     final Timer timer = new Timer() {
@@ -305,7 +314,7 @@ MouseOutHandler, MouseWheelHandler {
     	width=(int)RootLayoutPanel.get().getOffsetWidth();
     	height=(int)RootLayoutPanel.get().getOffsetHeight();
     	height=height-MENUBARHEIGHT;
-    	width=width-VERTICALPANELWIDTH;
+    	width=width-VERTICALPANELWIDTH-EDITORPANELWIDTH;
     	width = Math.max(width, 0);   // avoid exception when setting negative width
     	height = Math.max(height, 0);
 		if (cv != null) {
@@ -317,6 +326,9 @@ MouseOutHandler, MouseWheelHandler {
 			cv.setCoordinateSpaceWidth((int)(width*scale));
 			cv.setCoordinateSpaceHeight((int)(height*scale));
 		}
+        if (editor != null) {
+            editor.setHeight(height+"px");
+        }
 
     	setCircuitArea();
 
@@ -364,6 +376,7 @@ MouseOutHandler, MouseWheelHandler {
 	boolean usRes = false;
 	boolean running = true;
 	boolean hideSidebar = false;
+	boolean showTextEditor = false;
 	boolean hideMenu = false;
 	boolean noEditing = false;
 	boolean mouseWheelEdit = false;
@@ -401,6 +414,7 @@ MouseOutHandler, MouseWheelHandler {
 	    usRes = qp.getBooleanValue("usResistors",  false);
 	    running = qp.getBooleanValue("running", true);
 	    hideSidebar = qp.getBooleanValue("hideSidebar", false);
+	    showTextEditor = qp.getBooleanValue("showTextEditor", false);
 	    hideMenu = qp.getBooleanValue("hideMenu", false);
 	    printable = qp.getBooleanValue("whiteBackground", getOptionFromStorage("whiteBackground", false));
 	    convention = qp.getBooleanValue("conventionalCurrent",
@@ -484,9 +498,16 @@ MouseOutHandler, MouseWheelHandler {
 	if (VERTICALPANELWIDTH < 128)
 	    VERTICALPANELWIDTH = 128;
 
+    EDITORPANELWIDTH = width/5;
+    if (EDITORPANELWIDTH > 300)
+        EDITORPANELWIDTH = 300;
+    if (EDITORPANELWIDTH < 128)
+        EDITORPANELWIDTH = 128;
+
 	menuBar = new MenuBar();
 	menuBar.addItem(Locale.LS("File"), fileMenuBar);
 	verticalPanel=new VerticalPanel();
+	editorPanel = new VerticalPanel();
 
 	// make buttons side by side if there's room
 	buttonPanel=(VERTICALPANELWIDTH == 166) ? new HorizontalPanel() : new VerticalPanel();
@@ -613,6 +634,27 @@ MouseOutHandler, MouseWheelHandler {
 	composeMainMenu(drawMenuBar, 1);
 	loadShortcuts();
 
+    editor = new TextArea();
+    editor.setEnabled(true);
+    editor.setReadOnly(false);
+    editor.getElement().getStyle().setBackgroundColor( printable ? "#fff" : "#000");
+    editor.getElement().getStyle().setColor(!printable ? "#fff" : "#000");
+    editor.setWidth(EDITORPANELWIDTH+"px");
+    editor.setValue("Example 2");
+    int height=RootLayoutPanel.get().getOffsetHeight()-MENUBARHEIGHT;
+    editor.setHeight(height+"px");
+    editor.addFocusHandler(new FocusHandler() {
+        public void onFocus(FocusEvent ev) {
+            editorIsFocussed = true;
+        }
+    });
+    editor.addBlurHandler(new BlurHandler() {
+        public void onBlur(BlurEvent ev) {
+            editorIsFocussed = false;
+        }
+    });
+    editorPanel.add(editor);
+
 	if (!hideMenu)
 	    layoutPanel.addNorth(menuBar, MENUBARHEIGHT);
 
@@ -620,6 +662,10 @@ MouseOutHandler, MouseWheelHandler {
 	    VERTICALPANELWIDTH = 0;
 	else
 	    layoutPanel.addEast(verticalPanel, VERTICALPANELWIDTH);
+	if (!showTextEditor)
+		EDITORPANELWIDTH = 0;
+	else
+		layoutPanel.addEast(editorPanel, EDITORPANELWIDTH);
 	RootLayoutPanel.get().add(layoutPanel);
 
 	cv =Canvas.createIfSupported();
@@ -1901,6 +1947,18 @@ MouseOutHandler, MouseWheelHandler {
     public static native void console(String text)
     /*-{
 	    console.log(text);
+	}-*/;
+
+    public static native void consoleLogObject(JavaScriptObject obj)
+    /*-{
+	    console.log(obj);
+	}-*/;
+
+    public static native void eval(String text)
+    /*-{
+        // `(0, ...)` makes this indirect eval, i.e. declarations will go into the global scope
+        // (rather than the current scope, i.e. this function, where they will be immediately forgotten when we return)
+	    (0, $wnd.eval)(text);
 	}-*/;
 
     public static native void debugger() /*-{ debugger; }-*/;
@@ -3684,6 +3742,11 @@ MouseOutHandler, MouseWheelHandler {
 	if (hintType != -1)
 	    dump += "h " + hintType + " " + hintItem1 + " " +
 		hintItem2 + "\n";
+
+    String javascript = editor.getValue();
+    if (javascript.length() > 0)
+        dump += "!!!javascript\n" + javascript;
+
 	return dump;
     }
 
@@ -3895,7 +3958,13 @@ MouseOutHandler, MouseWheelHandler {
 			break;
 		    }
 		    if (tint == '!') {
-			CustomLogicModel.undumpModel(st);
+                if (type.equals("!!!javascript")) {
+                    String remainder = new String(b, l+p, len-l-p);
+                    editor.setValue(remainder);
+                    p = len;
+                } else {
+			        CustomLogicModel.undumpModel(st);
+                }
 			break;
 		    }
 		    if (tint == '%' || tint == '?' || tint == 'B') {
@@ -5304,6 +5373,24 @@ MouseOutHandler, MouseWheelHandler {
     		}
     		return;
     	}
+
+        if (editorIsFocussed) {
+    		if ((e.getNativeEvent().getCtrlKey() || e.getNativeEvent().getMetaKey()) && code==KEY_ENTER) {
+                eval(editor.getValue());
+
+                boolean anyUpdated = false;
+                for (int i = 0; i != elmArr.length; i++) {
+                    if (elmArr[i] instanceof JavaScriptElm) {
+                        ((JavaScriptElm)elmArr[i]).updateModels();
+                        anyUpdated = true;
+                    }
+                }
+                if (anyUpdated)
+                    needAnalyze();
+                writeRecoveryToStorage();
+            }
+            return;
+        }
     	
     	if ((t&Event.ONKEYPRESS)!=0) {
 		if (cc=='-') {
