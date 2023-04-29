@@ -1200,6 +1200,7 @@ MouseOutHandler, MouseWheelHandler {
     	chipMenuBar.addItem(getClassCheckItem(Locale.LS("Add Half Adder"), "HalfAdderElm"));
     	chipMenuBar.addItem(getClassCheckItem(Locale.LS("Add Custom Logic"), "UserDefinedLogicElm")); // don't change this, it will break people's saved shortcuts
     	chipMenuBar.addItem(getClassCheckItem(Locale.LS("Add Static RAM"), "SRAMElm"));
+    	chipMenuBar.addItem(getClassCheckItem(Locale.LS("Add JavaScript Circuit Item"), "JavaScriptElm"));
     	mainMenuBar.addItem(SafeHtmlUtils.fromTrustedString(CheckboxMenuItem.checkBoxHtml+Locale.LS("&nbsp;</div>Digital Chips")), chipMenuBar);
     	
     	MenuBar achipMenuBar = new MenuBar(true);
@@ -5773,6 +5774,7 @@ MouseOutHandler, MouseWheelHandler {
     	case 422: return new DelayBufferElm(x1, y1, x2, y2, f, st);
     	case 423: return new LineElm(x1, y1, x2, y2, f, st);
     	case 424: return new DataInputElm(x1, y1, x2, y2, f, st);
+    	case 600: return new JavaScriptElm(x1, y1, x2, y2, f, st);
         }
     	return null;
     }
@@ -6037,6 +6039,8 @@ MouseOutHandler, MouseWheelHandler {
 		return (CircuitElm) new DelayBufferElm(x1, y1);
     	if (n=="DataInputElm")
 		return (CircuitElm) new DataInputElm(x1, y1);
+    	if (n=="JavaScriptElm")
+		return (CircuitElm) new JavaScriptElm(x1, y1);
     	
     	// handle CustomCompositeElm:modelname
     	if (n.startsWith("CustomCompositeElm:")) {
