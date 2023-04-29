@@ -721,7 +721,7 @@ MouseOutHandler, MouseWheelHandler {
 		int i;
 		for (i = 0; i != selectScopeMenuItems.size(); i++) {
 		    MenuItem item = selectScopeMenuItems.get(i);
-		    if (DOM.isOrHasChild(item.getElement(), DOM.eventGetTarget(event))) {
+		    if (item.getElement().isOrHasChild(DOM.eventGetTarget(event))) {
 			//MenuItem found here
 			currentItem = i;
 		    }
@@ -6204,6 +6204,7 @@ MouseOutHandler, MouseWheelHandler {
 	    CustomLogicModel.clearDumpedFlags();
 	    DiodeModel.clearDumpedFlags();
 	    TransistorModel.clearDumpedFlags();
+        @SuppressWarnings("unchecked")
             Vector<LabeledNodeElm> sideLabels[] = new Vector[] {
                 new Vector<LabeledNodeElm>(), new Vector<LabeledNodeElm>(),
                 new Vector<LabeledNodeElm>(), new Vector<LabeledNodeElm>()
