@@ -10,7 +10,7 @@ GWT_URL="https://goo.gl/pZZPXS" # 2.8.2
 
 SCRIPT_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 SDK_DIR="$SCRIPT_DIR/.."
-GWT_DIR="$SDK_DIR/gwt-$GWT_VERSION"
+GWT_DIR="${GWT_DIR:-$SDK_DIR/gwt-$GWT_VERSION}"
 
 compile() {
     ant build
@@ -48,7 +48,9 @@ setup() {
     if [[ -e build.xml ]]; then
         mv build.xml build.xml.backup
     fi
-    chmod +x "$GWT_DIR/webAppCreator"
+    if ! [[ -x "$GWT_DIR/webAppCreator" ]] ; then
+      chmod +x "$GWT_DIR/webAppCreator"
+    fi
     "$GWT_DIR/webAppCreator" -out ../tempProject com.lushprojects.circuitjs1.circuitjs1
     cp ../tempProject/build.xml ./
     sed -i 's/source="1.7"/source="1.8"/g' build.xml
