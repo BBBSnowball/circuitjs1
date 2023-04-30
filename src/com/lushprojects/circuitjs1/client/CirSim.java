@@ -272,6 +272,7 @@ MouseOutHandler, MouseWheelHandler {
     HTML editorFull;
     HTML javascriptWarning;
     Button javascriptShowSimple, javascriptShowMonaco;
+    Button runJavascriptButton;
     boolean editorIsFocussed = false;
     Object monacoEditor;  // used by Javascript
 
@@ -721,6 +722,7 @@ MouseOutHandler, MouseWheelHandler {
 	        javascriptWarning.setVisible(false);
 	        javascriptShowSimple.setVisible(false);
 	        javascriptShowMonaco.setVisible(false);
+            runJavascriptButton.setVisible(true);
 	        editor.setVisible(true);
 	        layoutPanel.getWidgetContainerElement(editorPanel).getStyle().setOverflowY(Overflow.HIDDEN);
 	    }
@@ -731,6 +733,7 @@ MouseOutHandler, MouseWheelHandler {
 	        javascriptWarning.setVisible(false);
 	        javascriptShowSimple.setVisible(false);
 	        javascriptShowMonaco.setVisible(false);
+            runJavascriptButton.setVisible(true);
 	        layoutPanel.getWidgetContainerElement(editorPanel).getStyle().setOverflowY(Overflow.HIDDEN);
             editorFull.setVisible(true);
             createMonacoEditor(editorFull.getElement(), editor.getValue());
@@ -788,6 +791,16 @@ MouseOutHandler, MouseWheelHandler {
 	    public void onClick(ClickEvent event) { dumpMatrix = true; }});
 	verticalPanel.add(dumpMatrixButton);// IES for debugging
 	 */
+
+	runJavascriptButton = new Button(Locale.LS("Run Javascript"));
+	runJavascriptButton.addClickHandler(new ClickHandler() {
+	    public void onClick(ClickEvent event) {
+		evaluateJavascriptAction();
+	    }
+	});
+	runJavascriptButton.setStylePrimaryName("topButton");
+	runJavascriptButton.setVisible(false);
+    verticalPanel.add(runJavascriptButton);
 
 	if (LoadFile.isSupported())
 	    verticalPanel.add(loadFileInput = new LoadFile(this));
@@ -992,6 +1005,21 @@ MouseOutHandler, MouseWheelHandler {
         if (editorFull.isVisible()) {
             setTextForMonacoEditor(text);
         }
+    }
+
+    private void evaluateJavascriptAction() {
+        eval(getTextFromEditor());
+
+        boolean anyUpdated = false;
+        for (int i = 0; i != elmArr.length; i++) {
+            if (elmArr[i] instanceof JavaScriptElm) {
+                ((JavaScriptElm)elmArr[i]).updateModels();
+                anyUpdated = true;
+            }
+        }
+        if (anyUpdated)
+            needAnalyze();
+        writeRecoveryToStorage();
     }
 
     void setColors(String positiveColor, String negativeColor, String neutralColor, String selectColor, String currentColor) {
@@ -5518,18 +5546,7 @@ MouseOutHandler, MouseWheelHandler {
     		if ((e.getNativeEvent().getCtrlKey() || e.getNativeEvent().getMetaKey()) && code==KEY_ENTER) {
                 e.cancel();
 
-                eval(getTextFromEditor());
-
-                boolean anyUpdated = false;
-                for (int i = 0; i != elmArr.length; i++) {
-                    if (elmArr[i] instanceof JavaScriptElm) {
-                        ((JavaScriptElm)elmArr[i]).updateModels();
-                        anyUpdated = true;
-                    }
-                }
-                if (anyUpdated)
-                    needAnalyze();
-                writeRecoveryToStorage();
+                evaluateJavascriptAction();
             }
             return;
         } else if ((e.getNativeEvent().getCtrlKey() || e.getNativeEvent().getMetaKey()) && code==KEY_E) {
