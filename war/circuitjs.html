@@ -159,6 +159,7 @@
   <!--<script type="text/javascript" src="https://www.dropbox.com/static/api/2/dropins.js" id="dropboxjs" data-app-key="YOUR_KEY"></script>-->
 
   <script language="javascript" src="lz-string.min.js"></script>
+  <script language="javascript" src="monaco-editor/package/min/vs/loader.js"></script>
    
     <!-- This script tag is what actually loads the GWT module.  The -->
     <!-- 'nocache.js' file (also called a "selection script") is     -->
@@ -170,5 +171,15 @@
     <!-- (the id must be exactly as shown)                           -->
     <iframe src="javascript:''" id="__gwt_historyFrame" style="width:0;height:0;border:0"></iframe>
     
+    <script language="javascript">
+      function createMonacoEditor(container, options, callback) {
+         require.config({ paths: { vs: 'monaco-editor/package/min/vs' } });
+
+         require(['vs/editor/editor.main'], function () {
+            var editor = monaco.editor.create(container, options);
+            callback(editor);
+         });
+      }
+   </script>
   </body>
  </html>

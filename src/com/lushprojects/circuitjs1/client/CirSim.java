@@ -269,9 +269,11 @@ MouseOutHandler, MouseWheelHandler {
     double scopeHeightFraction = 0.2;
     VerticalPanel editorPanel;
     TextArea editor;
+    HTML editorFull;
     HTML javascriptWarning;
     Button javascriptShowSimple, javascriptShowMonaco;
     boolean editorIsFocussed = false;
+    Object monacoEditor;  // used by Javascript
 
     Vector<CheckboxMenuItem> mainMenuItems = new Vector<CheckboxMenuItem>();
     Vector<String> mainMenuItemNames = new Vector<String>();
@@ -332,6 +334,7 @@ MouseOutHandler, MouseWheelHandler {
 		}
         if (editor != null) {
             editor.setHeight(height+"px");
+            editorFull.setHeight(height+"px");
         }
 
     	setCircuitArea();
@@ -644,9 +647,18 @@ MouseOutHandler, MouseWheelHandler {
     editor.getElement().getStyle().setBackgroundColor( printable ? "#fff" : "#000");
     editor.getElement().getStyle().setColor(!printable ? "#fff" : "#000");
     editor.setWidth(EDITORPANELWIDTH+"px");
-    editor.setValue("Example 2");
+    editor.setValue("");
     int height=RootLayoutPanel.get().getOffsetHeight()-MENUBARHEIGHT;
     editor.setHeight(height+"px");
+    editor.setVisible(false);
+    editorPanel.add(editor);
+
+    editorFull = new HTML();
+    editorFull.setWidth(EDITORPANELWIDTH+"px");
+    editorFull.setHeight(height+"px");
+    editorFull.setVisible(false);
+    editorPanel.add(editorFull);
+
     editor.addFocusHandler(new FocusHandler() {
         public void onFocus(FocusEvent ev) {
             editorIsFocussed = true;
@@ -657,8 +669,6 @@ MouseOutHandler, MouseWheelHandler {
             editorIsFocussed = false;
         }
     });
-    editor.setVisible(false);
-    editorPanel.add(editor);
 
     //NOTE This text mostly assumes that persistent attacks via service workers are not possible
     //     because that would need a malicious file hosted on that domain and if the adversary
@@ -709,10 +719,21 @@ MouseOutHandler, MouseWheelHandler {
 	javascriptShowSimple.addClickHandler(new ClickHandler() {
 	    public void onClick(ClickEvent event) {
 	        javascriptWarning.setVisible(false);
-            javascriptShowSimple.setVisible(false);
-            javascriptShowMonaco.setVisible(false);
-            editor.setVisible(true);
-            layoutPanel.getWidgetContainerElement(editorPanel).getStyle().setOverflowY(Overflow.HIDDEN);
+	        javascriptShowSimple.setVisible(false);
+	        javascriptShowMonaco.setVisible(false);
+	        editor.setVisible(true);
+	        layoutPanel.getWidgetContainerElement(editorPanel).getStyle().setOverflowY(Overflow.HIDDEN);
+	    }
+	});
+
+	javascriptShowMonaco.addClickHandler(new ClickHandler() {
+	    public void onClick(ClickEvent event) {
+	        javascriptWarning.setVisible(false);
+	        javascriptShowSimple.setVisible(false);
+	        javascriptShowMonaco.setVisible(false);
+	        layoutPanel.getWidgetContainerElement(editorPanel).getStyle().setOverflowY(Overflow.HIDDEN);
+            editorFull.setVisible(true);
+            createMonacoEditor(editorFull.getElement(), editor.getValue());
 	    }
 	});
 
@@ -916,6 +937,61 @@ MouseOutHandler, MouseWheelHandler {
 	setupJSInterface();
 	
 	setSimRunning(running);
+    }
+
+    private native void createMonacoEditor(JavaScriptObject container, String text) /*-{
+        var that = this;
+        container.addEventListener("focus", function (_) {
+            //console.log("editor focussed", that);
+            that.@com.lushprojects.circuitjs1.client.CirSim::editorIsFocussed = true;
+        }, true);
+        container.addEventListener("blur", function (_) {
+            //console.log("editor unfocussed", that);
+            that.@com.lushprojects.circuitjs1.client.CirSim::editorIsFocussed = false;
+        }, true);
+
+        $wnd.createMonacoEditor(container, {
+            value: text,
+            language: 'javascript',
+            fontSize: 12,
+            minimap: { enabled: false},
+            lineNumbers: false,
+            automaticLayout: true,
+            // https://stackoverflow.com/a/53448744
+            // https://github.com/Microsoft/vscode/issues/30795#issuecomment-410998882
+            glyphMargin: false, folding: false, lineDecorationsWidth: 0, lineNumbersMinChars: 0,
+        }, function (editor) {
+            console.log("editor:", editor);
+            that.@com.lushprojects.circuitjs1.client.CirSim::monacoEditor = editor;
+            $wnd.editor = editor;  // useful for debugging
+        });
+    }-*/;
+    private native String getTextFromMonacoEditor() /*-{
+        var editor = this.@com.lushprojects.circuitjs1.client.CirSim::monacoEditor;
+        return editor.getModel().getValue();
+    }-*/;
+    private native void setTextForMonacoEditor(String text) /*-{
+        var editor = this.@com.lushprojects.circuitjs1.client.CirSim::monacoEditor;
+        editor.getModel().setValue(text);
+    }-*/;
+    private native void focusMonacoEditor() /*-{
+        var editor = this.@com.lushprojects.circuitjs1.client.CirSim::monacoEditor;
+        if (editor)
+            editor.focus();
+    }-*/;
+
+    private String getTextFromEditor() {
+        if (editorFull.isVisible()) {
+            return getTextFromMonacoEditor();
+        } else {
+            return editor.getValue();
+        }
+    }
+    private void setTextForEditor(String text) {
+        editor.setValue(text);
+        if (editorFull.isVisible()) {
+            setTextForMonacoEditor(text);
+        }
     }
 
     void setColors(String positiveColor, String negativeColor, String neutralColor, String selectColor, String currentColor) {
@@ -3807,7 +3883,7 @@ MouseOutHandler, MouseWheelHandler {
 	    dump += "h " + hintType + " " + hintItem1 + " " +
 		hintItem2 + "\n";
 
-    String javascript = editor.getValue();
+    String javascript = getTextFromEditor();
     if (javascript.length() > 0)
         dump += "!!!javascript\n" + javascript;
 
@@ -4024,7 +4100,7 @@ MouseOutHandler, MouseWheelHandler {
 		    if (tint == '!') {
                 if (type.equals("!!!javascript")) {
                     String remainder = new String(b, l+p, len-l-p);
-                    editor.setValue(remainder);
+                    setTextForEditor(remainder);
                     p = len;
                 } else {
 			        CustomLogicModel.undumpModel(st);
@@ -5440,7 +5516,9 @@ MouseOutHandler, MouseWheelHandler {
 
         if (editorIsFocussed) {
     		if ((e.getNativeEvent().getCtrlKey() || e.getNativeEvent().getMetaKey()) && code==KEY_ENTER) {
-                eval(editor.getValue());
+                e.cancel();
+
+                eval(getTextFromEditor());
 
                 boolean anyUpdated = false;
                 for (int i = 0; i != elmArr.length; i++) {
@@ -5454,8 +5532,13 @@ MouseOutHandler, MouseWheelHandler {
                 writeRecoveryToStorage();
             }
             return;
+        } else if ((e.getNativeEvent().getCtrlKey() || e.getNativeEvent().getMetaKey()) && code==KEY_E) {
+            if (editor.isVisible())
+                editor.getElement().focus();
+            else if (editorFull.isVisible())
+                focusMonacoEditor();
         }
-    	
+
     	if ((t&Event.ONKEYPRESS)!=0) {
 		if (cc=='-') {
     		    menuPerformed("key", "zoomout");
