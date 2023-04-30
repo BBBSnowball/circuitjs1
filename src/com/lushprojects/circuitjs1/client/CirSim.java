@@ -63,6 +63,7 @@ import com.google.gwt.core.client.JsArray;
 import com.google.gwt.core.client.Scheduler;
 import com.google.gwt.core.client.ScriptInjector;
 import com.google.gwt.dom.client.Style.Unit;
+import com.google.gwt.dom.client.Style.Overflow;
 import com.google.gwt.http.client.Request;
 import com.google.gwt.http.client.RequestException;
 import com.google.gwt.http.client.Response;
@@ -77,6 +78,7 @@ import com.google.gwt.user.client.Window;
 import com.google.gwt.user.client.ui.VerticalPanel;
 import com.google.gwt.user.client.ui.HorizontalPanel;
 import com.google.gwt.user.client.ui.TextArea;
+import com.google.gwt.user.client.ui.HTML;
 import com.google.gwt.event.dom.client.ClickHandler;
 import com.google.gwt.event.dom.client.ClickEvent;
 import com.google.gwt.event.dom.client.DoubleClickHandler;
@@ -267,6 +269,8 @@ MouseOutHandler, MouseWheelHandler {
     double scopeHeightFraction = 0.2;
     VerticalPanel editorPanel;
     TextArea editor;
+    HTML javascriptWarning;
+    Button javascriptShowSimple, javascriptShowMonaco;
     boolean editorIsFocussed = false;
 
     Vector<CheckboxMenuItem> mainMenuItems = new Vector<CheckboxMenuItem>();
@@ -653,7 +657,64 @@ MouseOutHandler, MouseWheelHandler {
             editorIsFocussed = false;
         }
     });
+    editor.setVisible(false);
     editorPanel.add(editor);
+
+    //NOTE This text mostly assumes that persistent attacks via service workers are not possible
+    //     because that would need a malicious file hosted on that domain and if the adversary
+    //     has that level of access, they could host a HTML file, as well - i.e. they wouldn't
+    //     need our simulator to inject Javascript.
+    //FIXME We may want to add some options for server operators here, e.g. don't allow it at
+    //      all or make the warning less dire if they host it on a dedicated domain.
+    javascriptWarning = new HTML(
+        "<p>This area is for editing Javascript definitions for custom circuit elements. "
+        + "The Javascript will run in the context of this web page so it will have access "
+        + "to the circuit simulator and other data for this domain. This is usually a good "
+        + "thing.</p>"
+        + "<p><font color=\"red\"><bold>However, DO NOT use this to run UNTRUSTED Javascript. "
+        + "If you came here via a link and the text box already contains some code, do not "
+        + "run it unless you understand what it does (or have a lot of trust in the person "
+        + "who sent it to you).</bold></font> The circuit simulation will probably not work "
+        + "correctly but that's better than taking the risk. Read below for alternatives.</p>"
+        + "<p>Javascript will have access to the current domain, which is "
+        + SafeHtmlUtils.htmlEscape(Window.Location.getHost()) + ". "
+        + "It will be able to steal information that this domain has stored for you on your "
+        + "device or in the cloud. Furthermore, it will be able to impersonate you towards "
+        + "services that are hosted on the same domain.</p>"
+        + "<p>If you are writing your own Javascript, that's completely safe, of course. "
+        + "If you do want semi-trusted Javascript, you can do so on a domain that doesn't "
+        + "host any other services, e.g. <a href=\"https://sim.unwahrhe.it/\">here</a>. You "
+        + "can use your web browser's privacy mode (or delete data for the domain before and "
+        + "after your visit) to hide circuits that you have simulated in a previous session. "
+        + "The export function will work without custom Javascript and it can be used to transfer "
+        + "the circuit to another domain (use \"File -> Export As Text\" here and the \"Import "
+        + "From Text\" on the other domain).</p>"
+        + "<p>You can ignore this warning and use the circuit simulator if you don't want to "
+        + "run any Javascript. If you do want Javascript, you can choose between a simple text "
+        + "area and a fully-featured editor with syntax highlighting. The Javscript will only "
+        + "be run when you click \"Run\" or press ctrl+enter so you can show the editor and "
+        + "review the code before you run it. I suggest that you open the developer tools "
+        + "console of your browser because any Javascript errors will be shown there.</p>"
+    );
+    javascriptWarning.setStylePrimaryName("jsWarning");
+    editorPanel.add(javascriptWarning);
+    javascriptShowSimple = new Button("Show simple text area");
+	javascriptShowSimple.setStylePrimaryName("topButton");
+    editorPanel.add(javascriptShowSimple);
+    javascriptShowMonaco = new Button("Show full editor");
+	javascriptShowMonaco.setStylePrimaryName("topButton");
+    editorPanel.setStylePrimaryName("panelWithJsWarning");
+    editorPanel.add(javascriptShowMonaco);
+
+	javascriptShowSimple.addClickHandler(new ClickHandler() {
+	    public void onClick(ClickEvent event) {
+	        javascriptWarning.setVisible(false);
+            javascriptShowSimple.setVisible(false);
+            javascriptShowMonaco.setVisible(false);
+            editor.setVisible(true);
+            layoutPanel.getWidgetContainerElement(editorPanel).getStyle().setOverflowY(Overflow.HIDDEN);
+	    }
+	});
 
 	if (!hideMenu)
 	    layoutPanel.addNorth(menuBar, MENUBARHEIGHT);
@@ -664,8 +725,10 @@ MouseOutHandler, MouseWheelHandler {
 	    layoutPanel.addEast(verticalPanel, VERTICALPANELWIDTH);
 	if (!showTextEditor)
 		EDITORPANELWIDTH = 0;
-	else
+	else {
 		layoutPanel.addEast(editorPanel, EDITORPANELWIDTH);
+        layoutPanel.getWidgetContainerElement(editorPanel).getStyle().setOverflowY(Overflow.AUTO);
+    }
 	RootLayoutPanel.get().add(layoutPanel);
 
 	cv =Canvas.createIfSupported();
