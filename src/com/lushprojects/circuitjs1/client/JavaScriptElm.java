@@ -408,6 +408,7 @@ public class JavaScriptElm extends ChipElm {
     }
     
     int getDumpType() { return 600; }
+	int getShortcut() { return 'J'; }
 
     void getInfo(String arr[]) {
         super.getInfo(arr);
