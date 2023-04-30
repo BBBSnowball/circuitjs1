@@ -201,7 +201,22 @@ public class JavaScriptElm extends ChipElm {
     }
     
     boolean nonLinear() { return hasTriState(); }
-    
+
+    @Override
+    void reset() {
+        super.reset();
+
+        javascriptErrors = 0;
+        if (implementation == null || !implementationValid)
+            return;
+
+        try {
+            reset(implementation);
+        } catch (Exception e) {
+            reportException("Exception in Javascript implementation (reset) of circuit element:", e);
+        }
+    }
+
     int getInternalNodeCount() {
         // for tri-state outputs, we need an internal node to connect a voltage source to,
         // and then connect a resistor from there to the output.
@@ -286,6 +301,10 @@ public class JavaScriptElm extends ChipElm {
                 return -1;
             }
         });
+    }-*/;
+    private native boolean reset(JavaScriptObject implementation) /*-{
+        if (implementation.reset)
+            implementation.reset();
     }-*/;
     private native boolean startIteration(JavaScriptObject implementation, double time) /*-{
         if (implementation.startIteration)
